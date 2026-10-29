@@ -59,3 +59,5 @@ jobs:
           name: APK-2-NEW-code
           path: src/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
+
+# Build workflow is maintained in .github/workflows/build-apk.yml.
