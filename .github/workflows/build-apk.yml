@@ -1,13 +1,24 @@
-name: Build LunarVoid APK
+name: Build LunarVoid Proxy APKs
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'lunarvoid-src (10).zip'
-      - 'build (4).yml'
-      - '.github/workflows/build-apk.yml'
+      - '**.java'
+      - '**.go'
+      - '**.xml'
+      - '**.gradle'
+      - '**.html'
+      - '**.json'
+      - '**.yml'
+      - '**.png'
+      - 'go.mod'
+      - 'lunarvoid.jks'
+      - 'liblunarvoid50.so'
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -15,15 +26,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack the source ZIP 10
-        run: unzip -q -o 'lunarvoid-src (10).zip' -d src
-
-      - uses: actions/setup-java@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK pieces
+      - name: Install Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
@@ -32,24 +41,78 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      # APK OLD: the old engine in the new Android code.
-      - name: Make APK OLD
+      # The repository currently stores the Android and Go source files at its root.
+      # Assemble the standard Gradle project layout from those tracked files.
+      - name: Prepare Android and Go project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src/app/src/main/assets
+          mkdir -p src/app/src/main/java/com/lunarvoid/proxy
+          mkdir -p src/app/src/main/res/drawable
+          mkdir -p src/app/src/main/res/drawable-nodpi
+          mkdir -p src/app/src/main/res/values
+          mkdir -p src/app/src/main/jniLibs/arm64-v8a
+          mkdir -p src/app/libs
+          mkdir -p src/engine
+
+          cp settings.gradle src/settings.gradle
+          cp gradle.properties src/gradle.properties
+          cp build.gradle src/app/build.gradle
+          cp AndroidManifest.xml src/app/src/main/AndroidManifest.xml
+          cp index.html src/app/src/main/assets/index.html
+          cp lunarvoid.jks src/app/lunarvoid.jks
+
+          for file in MainActivity.java GameEngine.java GameEngine50.java GameService.java NativeEngine.java SessionKey.java; do
+            if [ -f "$file" ]; then cp "$file" "src/app/src/main/java/com/lunarvoid/proxy/$file"; fi
+          done
+
+          if [ -f ic_proxy.png ]; then cp ic_proxy.png src/app/src/main/res/drawable-nodpi/ic_proxy.png; fi
+          if [ -f colors.xml ]; then cp colors.xml src/app/src/main/res/values/colors.xml; fi
+          if [ -f ic_notification.xml ]; then cp ic_notification.xml src/app/src/main/res/drawable/ic_notification.xml; fi
+          if [ -f liblunarvoid50.so ]; then cp liblunarvoid50.so src/app/src/main/jniLibs/arm64-v8a/liblunarvoid50.so; fi
+
+          cp go.mod src/engine/go.mod
+          for file in ./*.go; do
+            [ -f "$file" ] || continue
+            cp "$file" src/engine/
+          done
+          mkdir -p src/engine/pack/ui
+          [ ! -f lunarvoid.json ] || cp lunarvoid.json src/engine/pack/ui/lunarvoid.json
+          [ ! -f _ui_defs.json ] || cp _ui_defs.json src/engine/pack/ui/_ui_defs.json
+          [ ! -f manifest.json ] || cp manifest.json src/engine/pack/manifest.json
+
+          cat > src/build.gradle <<'GRADLE'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          GRADLE
+
+          test -f src/app/src/main/assets/index.html
+          test -f src/app/src/main/java/com/lunarvoid/proxy/MainActivity.java
+          test -f src/app/src/main/jniLibs/arm64-v8a/liblunarvoid50.so
+
+      - name: Build APK OLD engine
         working-directory: src
         run: gradle :app:assembleOldDebug --no-daemon
 
+      - name: Name OLD APK
+        run: |
+          mkdir -p release
+          cp src/app/build/outputs/apk/old/debug/app-old-debug.apk release/LUNARVOIDPROXY.1.0.0.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: APK-OLD-engine
-          path: src/app/build/outputs/apk/old/debug/app-old-debug.apk
+          name: LUNARVOIDPROXY-1.0.0-OLD
+          path: release/LUNARVOIDPROXY.1.0.0.apk
+          if-no-files-found: error
 
-      # APK NEXT: rebuilt Go engine. APK OLD remains available if this fails.
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
-          check-latest: true
+          go-version: '1.25'
           cache: false
 
-      - name: Build the Go engine
+      - name: Build Go engine AAR
         id: goaar
         continue-on-error: true
         working-directory: src/engine
@@ -60,18 +123,22 @@ jobs:
           go install golang.org/x/mobile/cmd/gomobile@latest
           go get golang.org/x/mobile/bind
           gomobile init
-          mkdir -p ../app/libs
           gomobile bind -target=android/arm64 -androidapi 26 -ldflags="-s -w" -o ../app/libs/engine.aar .
 
-      - name: Make APK NEXT
+      - name: Build APK NEXT engine
         if: steps.goaar.outcome == 'success'
         continue-on-error: true
         working-directory: src
         run: gradle :app:assembleNextDebug --no-daemon
 
+      - name: Name NEXT APK
+        if: steps.goaar.outcome == 'success'
+        run: |
+          cp src/app/build/outputs/apk/next/debug/app-next-debug.apk release/LUNARVOIDPROXY.1.0.0-NEXT.apk
+
       - uses: actions/upload-artifact@v4
         if: steps.goaar.outcome == 'success'
         with:
-          name: APK-NEXT-engine
-          path: src/app/build/outputs/apk/next/debug/app-next-debug.apk
+          name: LUNARVOIDPROXY-1.0.0-NEXT
+          path: release/LUNARVOIDPROXY.1.0.0-NEXT.apk
           if-no-files-found: warn
