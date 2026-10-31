@@ -301,10 +301,10 @@ let keyframes=safeGet('lv-keyframes',[]), points=safeGet('lv-points',[{name:'Poi
 if(!Array.isArray(keyframes))keyframes=[];
 if(!Array.isArray(points))points=[];
 function toast(t){if(appPreferences?.notifications===false)return;const e=$('#toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>e.classList.remove('show'),2600)}
-function go(p){$$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+p));$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===p));if(p==='play')renderServers();if(p==='player')drawPlayer();try{window.scrollTo({top:0,behavior:document.body.classList.contains('reduced')?'auto':'smooth'})}catch{}}
-$('.nav').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
-function setPlayTab(name){$('.playtab[data-playtab]').forEach(b=>{const active=b.dataset.playtab===name;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});$('.playpane').forEach(p=>p.classList.toggle('active',p.id==='playpane-'+name));if(name==='servers')renderServers()}
-$('.playtab[data-playtab]').forEach(b=>b.addEventListener('click',()=>setPlayTab(b.dataset.playtab)));$$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));$('#homePlay')?.addEventListener('click',()=>go('play'));
+function go(p){$$$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+p));$$$('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===p));if(p==='play')renderServers();if(p==='player')drawPlayer();try{window.scrollTo({top:0,behavior:document.body.classList.contains('reduced')?'auto':'smooth'})}catch{}}
+$$('.nav').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
+function setPlayTab(name){$$('.playtab[data-playtab]').forEach(b=>{const active=b.dataset.playtab===name;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});$$('.playpane').forEach(p=>p.classList.toggle('active',p.id==='playpane-'+name));if(name==='servers')renderServers()}
+$$('.playtab[data-playtab]').forEach(b=>b.addEventListener('click',()=>setPlayTab(b.dataset.playtab)));$$$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));$('#homePlay')?.addEventListener('click',()=>go('play'));
 function renderServers(){const l=$('#serverList'),total=$('#serverTotal');if(!l)return;if(total)total.textContent=servers.length+' saved';l.replaceChildren();if(!servers.length){const e=document.createElement('div');e.className='empty';e.textContent='No servers yet. Add one to get started.';l.append(e);return}servers.forEach((s,i)=>{const r=document.createElement('div');r.className='server';const icon=document.createElement('span');icon.className='servericon';icon.textContent='◇';const meta=document.createElement('div');meta.className='servermeta';const name=document.createElement('b');name.textContent=s.name||'Server';const addr=document.createElement('small');addr.textContent=(s.ip||'')+':'+(s.port||19132);meta.append(name,addr);const sel=document.createElement('button');sel.className='secondary connect';sel.textContent=s.selected?'Selected':'Select';sel.disabled=proxyBusyOrRunning();sel.addEventListener('click',()=>{if(proxyBusyOrRunning())return;servers=servers.map((x,j)=>({...x,selected:j===i}));persist();toast('Server selected. Press Start Proxy to create a connection.')});const del=document.createElement('button');del.className='secondary delete';del.textContent='×';del.disabled=proxyBusyOrRunning();del.setAttribute('aria-label','Remove '+(s.name||'server'));del.addEventListener('click',()=>{if(proxyBusyOrRunning())return;const was=servers[i]?.selected;servers.splice(i,1);if(was&&servers[0])servers[0].selected=true;persist();toast('Server removed.')});r.append(icon,meta,sel,del);l.append(r)})}
 function persist(){safeSet('lv-servers',servers);renderServers()}
 $('#serverForm')?.addEventListener('submit',e=>{e.preventDefault();const name=$('#serverName')?.value.trim(),ip=$('#serverIp')?.value.trim(),port=Number($('#serverPort')?.value);if(!name||!ip||ip.length>253||!/^[A-Za-z0-9.\-]+$/.test(ip)||!Number.isInteger(port)||port<1||port>65535){toast('Check the server name, address, and port.');return}if(servers.some(s=>String(s.ip).toLowerCase()===ip.toLowerCase()&&s.port===port)){toast('That server is already saved.');return}servers.push({name,ip,port,selected:servers.length===0});persist();e.target.reset();if($('#serverPort'))$('#serverPort').value=19132;toast('Server saved in this browser.')});
@@ -430,7 +430,7 @@ async function stopLegacyRelay(){
   rememberRelay(null);relayStatus={state:'stopped'};
 }
 
-$$('[data-pt]').forEach(b=>b.addEventListener('click',()=>{$$('[data-pt]').forEach(x=>x.classList.toggle('active',x===b));$$('.pt').forEach(x=>x.classList.toggle('active',x.id==='pt-'+b.dataset.pt))}));
+$$$('[data-pt]').forEach(b=>b.addEventListener('click',()=>{$$$('[data-pt]').forEach(x=>x.classList.toggle('active',x===b));$$$('.pt').forEach(x=>x.classList.toggle('active',x.id==='pt-'+b.dataset.pt))}));
 // PS-style UI tones: one hover tone only when an element first becomes blue/hovered; no sound on tiny pointer movements.
 let audioCtx=null;function tone(kind){if(appPreferences?.sounds===false)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type='sine';osc.frequency.value=kind==='select'?740:520;gain.gain.setValueAtTime(kind==='select'?0.075:0.055,audioCtx.currentTime);gain.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+(kind==='select'?0.12:0.075));osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+(kind==='select'?0.12:0.075))}catch{}}
 let lastHoverSound=0;document.addEventListener('pointerover',event=>{const el=event.target.closest('button,.upload,[role="button"],a');if(!el||el.contains(event.relatedTarget))return;const now=performance.now();if(now-lastHoverSound>65){lastHoverSound=now;tone('hover')}},{capture:true});document.addEventListener('click',event=>{const el=event.target.closest('button,.upload,[role="button"],a');if(el)tone('select')},{capture:true});
@@ -565,7 +565,7 @@ canvas?.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};canvas
 canvas?.addEventListener('pointermove',e=>{if(!drag)return;yaw+=(e.clientX-drag.x)*.012;pitch=clampP(pitch+(e.clientY-drag.y)*.008);drag={x:e.clientX,y:e.clientY};lastDrag=performance.now();drawPlayer()});
 ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>canvas?.addEventListener(ev,()=>{drag=null;lastDrag=performance.now()}));
 document.addEventListener('visibilitychange',drawPlayer);
-$$('[data-pt]').forEach(b=>b.addEventListener('click',()=>setTimeout(drawPlayer,0)));
+$$$('[data-pt]').forEach(b=>b.addEventListener('click',()=>setTimeout(drawPlayer,0)));
 // Steve default (embedded PNG) + saved skin restore
 const STEVE_IMG=new Image();
 function showSkinLabels(name){skinName=name;const nm=$('#skinName'),fn=$('#skinFileName');if(nm)nm.textContent=name;if(fn)fn.textContent=name==='Steve'?'No file selected':name}
@@ -688,9 +688,9 @@ usernameInput?.addEventListener('input', () => {
     : 'Updated for this session. This browser could not save your nickname.';
 });
 
-$$('[data-st]').forEach(button => button.addEventListener('click', () => {
-  $$('[data-st]').forEach(tab => tab.classList.toggle('active', tab === button));
-  $$('.st').forEach(panel => panel.classList.toggle('active', panel.id === 'st-' + button.dataset.st));
+$$$('[data-st]').forEach(button => button.addEventListener('click', () => {
+  $$$('[data-st]').forEach(tab => tab.classList.toggle('active', tab === button));
+  $$$('.st').forEach(panel => panel.classList.toggle('active', panel.id === 'st-' + button.dataset.st));
 }));
 
 // In-game client-menu catalog. Preview controls remain disabled until gameplay hooks exist.
@@ -730,8 +730,8 @@ function saveClientPreferences(){
     : 'Updated for this session. This device could not save the preferences.';
 }
 function clientView(view){
-  $$('.client-view').forEach(panel=>panel.hidden=panel.id!=='client-view-'+view);
-  $$('.client-nav').forEach(button=>{
+  $$$('.client-view').forEach(panel=>panel.hidden=panel.id!=='client-view-'+view);
+  $$$('.client-nav').forEach(button=>{
     const active=button.dataset.clientView===view;
     button.classList.toggle('active',active);
     if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
@@ -751,7 +751,7 @@ $('#clientHomeButton').addEventListener('click',()=>clientView('modules'));
 $('#clientReplayButton').addEventListener('click',()=>clientView('replay'));
 $('#closeClientMenu').addEventListener('click',()=>clientMenu.close());
 $('#clientModules').addEventListener('click',()=>clientView('modules'));
-$$('[data-client-view]').forEach(button=>button.addEventListener('click',()=>clientView(button.dataset.clientView)));
+$$$('[data-client-view]').forEach(button=>button.addEventListener('click',()=>clientView(button.dataset.clientView)));
 $('#openReplayLibrary').addEventListener('click',()=>{clientMenu.close();go('replay');});
 $('#clientNickname').addEventListener('input',event=>{
   usernameInput.value=event.target.value;
