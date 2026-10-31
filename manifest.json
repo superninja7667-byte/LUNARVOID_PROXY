@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "LUNARVOID Client Menu",
+    "description": "LUNARVOID in-game menu.",
+    "uuid": "c1a5e1f0-3b7d-4f6a-9d21-6a1c0f4b7e10",
+    "version": [
+      1,
+      1,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "e4b2d9a7-5c18-4a3e-8f67-2d9b1c3a6e55",
+      "version": [
+        1,
+        1,
+        0
+      ]
+    }
+  ]
+}

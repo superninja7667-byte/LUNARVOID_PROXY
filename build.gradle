@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.lunarvoid.proxy'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.lunarvoid.proxy'
+        minSdk 26
+        targetSdk 34
+        // goes up every build, so Android always accepts it as an update
+        versionCode Math.floorDiv(System.currentTimeMillis(), 60000L).intValue()
+        versionName '1.0.0-test'
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    flavorDimensions 'engine'
+    productFlavors {
+        // The old engine inside the new Android code: the one that joins servers today.
+        old {
+            dimension 'engine'
+            applicationIdSuffix '.v2'
+            manifestPlaceholders = [appLabel: 'LUNARVOIDPROXY']
+        }
+        // The rebuilt engine: new in-game menu, server resource packs passed on.
+        next {
+            dimension 'engine'
+            applicationIdSuffix '.next'
+            manifestPlaceholders = [appLabel: 'LUNARVOID NEXT']
+        }
+    }
+
+    signingConfigs {
+        lunarvoid {
+            storeFile file('lunarvoid.jks')
+            storePassword 'lunarvoid'
+            keyAlias 'lunarvoid'
+            keyPassword 'lunarvoid'
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Same key every build = new builds install over the old one, no uninstall needed.
+            signingConfig signingConfigs.lunarvoid
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Serves the app screen from inside the app, like the old LUNARVOID build did.
+    implementation 'androidx.webkit:webkit:1.12.1'
+    // Built from the Go code in /engine by the GitHub workflow.
+    nextImplementation files('libs/engine.aar')
+}
