@@ -49,6 +49,7 @@ jobs:
           set -euo pipefail
           mkdir -p src/app/src/main/assets
           mkdir -p src/app/src/main/java/com/lunarvoid/proxy
+          mkdir -p src/app/src/next/java/com/lunarvoid/proxy
           mkdir -p src/app/src/main/res/drawable
           mkdir -p src/app/src/main/res/drawable-nodpi
           mkdir -p src/app/src/main/res/values
@@ -63,9 +64,11 @@ jobs:
           cp index.html src/app/src/main/assets/index.html
           cp lunarvoid.jks src/app/lunarvoid.jks
 
-          for file in MainActivity.java GameEngine.java GameEngine50.java GameService.java NativeEngine.java SessionKey.java; do
+          for file in MainActivity.java GameEngine.java GameEngine50.java GameService.java SessionKey.java; do
             if [ -f "$file" ]; then cp "$file" "src/app/src/main/java/com/lunarvoid/proxy/$file"; fi
           done
+          # The Go-generated engine bridge belongs only to the NEXT flavor.
+          if [ -f NativeEngine.java ]; then cp NativeEngine.java src/app/src/next/java/com/lunarvoid/proxy/NativeEngine.java; fi
 
           if [ -f ic_proxy.png ]; then cp ic_proxy.png src/app/src/main/res/drawable-nodpi/ic_proxy.png; fi
           if [ -f colors.xml ]; then cp colors.xml src/app/src/main/res/values/colors.xml; fi
