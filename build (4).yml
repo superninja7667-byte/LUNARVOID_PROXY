@@ -1,0 +1,73 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack the source zip
+        run: unzip -q -o lunarvoid-src.zip -d src
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK pieces
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      # APK "OLD": the old engine in the new Android code (the one that joins servers today).
+      - name: Make APK OLD
+        working-directory: src
+        run: gradle :app:assembleOldDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: APK-OLD-engine
+          path: src/app/build/outputs/apk/old/debug/app-old-debug.apk
+
+      # APK "NEXT": the rebuilt engine. If it fails, APK OLD above is still yours.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+
+      - name: Build the Go engine
+        id: goaar
+        continue-on-error: true
+        working-directory: src/engine
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_LATEST_HOME}"
+          go mod tidy
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go get golang.org/x/mobile/bind
+          gomobile init
+          mkdir -p ../app/libs
+          gomobile bind -target=android/arm64 -androidapi 26 -ldflags="-s -w" -o ../app/libs/engine.aar .
+
+      - name: Make APK NEXT
+        if: steps.goaar.outcome == 'success'
+        continue-on-error: true
+        working-directory: src
+        run: gradle :app:assembleNextDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        if: steps.goaar.outcome == 'success'
+        with:
+          name: APK-NEXT-engine
+          path: src/app/build/outputs/apk/next/debug/app-next-debug.apk
+          if-no-files-found: warn
