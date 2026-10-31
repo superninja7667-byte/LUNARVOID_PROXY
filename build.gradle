@@ -59,6 +59,6 @@ android {
 dependencies {
     // Serves the app screen from inside the app, like the old LUNARVOID build did.
     implementation 'androidx.webkit:webkit:1.12.1'
-    // Built from the Go code in /engine by the GitHub workflow.
-    nextImplementation files('libs/engine.aar')
+    // Built from the Go code in /engine; shared by both APK variants.
+    implementation files('libs/engine.aar')
 }
