@@ -5,8 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'lunarvoid-src (9).zip'
-      - 'build (3).yml'
+      - 'lunarvoid-src (10).zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -15,8 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack source ZIP 9
-        run: unzip -q -o 'lunarvoid-src (9).zip' -d src
+      - name: Unpack source ZIP 10
+        run: unzip -q -o 'lunarvoid-src (10).zip' -d src
 
       - uses: actions/setup-java@v4
         with:
