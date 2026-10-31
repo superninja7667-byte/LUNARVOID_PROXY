@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'lunarvoid-src (10).zip'
+      - 'build (4).yml'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -14,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack source ZIP 10
+      - name: Unpack the source ZIP 10
         run: unzip -q -o 'lunarvoid-src (10).zip' -d src
 
       - uses: actions/setup-java@v4
@@ -27,36 +28,50 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Make APK 1 (original app + new page)
-        run: |
-          set -e
-          BT="$ANDROID_HOME/build-tools/34.0.0"
-          cd /tmp
-          cp "$GITHUB_WORKSPACE/src/original/old-app.apk" work.apk
-          mkdir -p p/assets
-          cp "$GITHUB_WORKSPACE/src/app/src/main/assets/index.html" p/assets/index.html
-          zip -q -d work.apk 'META-INF/*' || true
-          (cd p && zip -q ../work.apk assets/index.html)
-          "$BT/zipalign" -f -p 4 work.apk aligned.apk
-          "$BT/apksigner" sign --ks "$GITHUB_WORKSPACE/src/app/lunarvoid.jks" --ks-pass pass:lunarvoid --key-pass pass:lunarvoid --out "$GITHUB_WORKSPACE/1-ORIGINAL-app-with-your-page.apk" aligned.apk
-          "$BT/apksigner" verify "$GITHUB_WORKSPACE/1-ORIGINAL-app-with-your-page.apk"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: APK-1-ORIGINAL-app
-          path: 1-ORIGINAL-app-with-your-page.apk
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Make APK 2 (old engine in new Android code)
-        continue-on-error: true
+      # APK OLD: the old engine in the new Android code.
+      - name: Make APK OLD
         working-directory: src
-        run: gradle :app:assembleDebug --no-daemon
+        run: gradle :app:assembleOldDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
-          name: APK-2-NEW-code
-          path: src/app/build/outputs/apk/debug/app-debug.apk
+          name: APK-OLD-engine
+          path: src/app/build/outputs/apk/old/debug/app-old-debug.apk
+
+      # APK NEXT: rebuilt Go engine. APK OLD remains available if this fails.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+          cache: false
+
+      - name: Build the Go engine
+        id: goaar
+        continue-on-error: true
+        working-directory: src/engine
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_LATEST_HOME}"
+          go mod tidy
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go get golang.org/x/mobile/bind
+          gomobile init
+          mkdir -p ../app/libs
+          gomobile bind -target=android/arm64 -androidapi 26 -ldflags="-s -w" -o ../app/libs/engine.aar .
+
+      - name: Make APK NEXT
+        if: steps.goaar.outcome == 'success'
+        continue-on-error: true
+        working-directory: src
+        run: gradle :app:assembleNextDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        if: steps.goaar.outcome == 'success'
+        with:
+          name: APK-NEXT-engine
+          path: src/app/build/outputs/apk/next/debug/app-next-debug.apk
           if-no-files-found: warn
